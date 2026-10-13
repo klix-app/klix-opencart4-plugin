@@ -1,0 +1,68 @@
+{{ header }}{{ column_left }}
+<div id="content">
+	<div class="page-header">
+		<div class="container-fluid">
+			<div class="float-end">
+				<button type="submit" form="form-payment" data-bs-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fas fa-save"></i></button>
+				<a href="{{ back }}" data-bs-toggle="tooltip" title="{{ button_back }}" class="btn btn-light"><i class="fas fa-reply"></i></a>
+			</div>
+			<h1>{{ heading_title }}</h1>
+			<ul class="breadcrumb">
+				{% for breadcrumb in breadcrumbs %}
+				<li class="breadcrumb-item"><a href="{{ breadcrumb['href'] }}">{{ breadcrumb['text'] }}</a></li>
+				{% endfor %}
+			</ul>
+		</div>
+	</div>
+	<div class="container-fluid">
+		<div class="card">
+			<div class="card-header"><i class="fas fa-pencil-alt"></i> {{ text_edit }}</div>
+			<div class="card-body">
+				<form action="{{ save }}" method="post" id="form-payment" data-oc-toggle="ajax">
+					<div class="tab-content">
+						<div class="tab-pane active" id="tab-general">
+							<div class="row mb-3 required">
+								<label class="col-sm-2 col-form-label" for="input-brand-id">{{ entry_brand_id }}</label>
+								<div class="col-sm-10">
+									<div class="input-group">
+										<input type="text" name="payment_klix_brand_id" value="{{ brand_id }}" placeholder="{{ entry_brand_id }}" id="input-brand-id" class="form-control" />
+										<div id="error-brand-id" class="invalid-feedback"></div>
+									</div>
+								</div>
+							</div>
+							<div class="row mb-3 required">
+								<label class="col-sm-2 col-form-label" for="input-secret-key">{{ entry_secret_key }}</label>
+								<div class="col-sm-10">
+									<div class="input-group">
+										<input type="text" name="payment_klix_secret_key" value="{{ secret_key }}" placeholder="{{ entry_secret_key }}" id="input-secret-key" class="form-control" />
+										<div id="error-secret-key" class="invalid-feedback"></div>
+									</div>
+								</div>
+							</div>
+							<div class="row mb-3">
+								<label class="col-sm-2 col-form-label" for="input-status">{{ entry_status }}</label>
+								<div class="col-sm-10">
+									<div class="form-check form-switch form-switch-lg">
+										<input type="hidden" name="payment_klix_status" value="0"/>
+										<input type="checkbox" name="payment_klix_status" value="1" id="input-status" class="form-check-input"{% if status %} checked{% endif %}/>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>	
+<style type="text/css">
+
+#content .col-form-label span::after {
+  font-family: 'Font Awesome 5 Free';
+  color: #1E91CF;
+  content: '\f059';
+  margin-left: 4px;
+}
+
+</style>	 					
+{{ footer }}				

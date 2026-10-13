@@ -1,0 +1,65 @@
+<h2>Payment information</h2>
+<div class="alert alert-success" id="klix-transaction-msg" style="display:none;"></div>
+<table class="table table-striped table-bordered">
+	<tr>
+		<td>Purchase ID</td>
+		<td>{{klix_purchase_id}}</td>
+	</tr>
+	<tr>
+		<td>Payment method</td>
+		<td>{{klix_payment_method}}</td>
+	</tr>
+	<tr>
+		<td>Refundable amount</td>
+		<td id="payment_klix-total-refunded">{{ klix_refundable_amount|number_format(2) }}</td>
+	</tr>
+	<tr>
+		<td>Refund</td>
+		<td id="refund_status">
+		{% if klix_refund_availability == 'none' %}
+			<span class="refund_text">Refund is not available or order is fully refunded</span>
+		{% endif %}
+		{% if klix_refund_availability != 'none'%}
+			{% if klix_refundable_amount == 0 %}
+				<span class="refund_text">Refund is not available or order is fully refunded</span>
+			{% else %}
+				<div class="row mb-3">
+					<div class="col-sm-3">
+						<input type="number" width="10" step=".01" min="0" max="{{ klix_refundable_amount }}" id="klix-refund-amount" class="form-control" />
+					</div>
+					<div class="col-sm-3">
+						<a class="button btn btn-primary" id="button-refund">Refund</a> 
+					</div>
+				</div>
+			{% endif %}
+		{% endif %}
+		</td>
+	</tr>
+</table>
+<script type="text/javascript">
+  
+$('#button-refund').click(function() {
+	let amount=parseFloat(document.getElementById('klix-refund-amount').value) * 100
+	if (confirm('Are you sure you want to refund?') && amount!=='' && amount>=0) {
+		$.ajax({
+			type: 'POST',
+			dataType: 'json',
+			data: {'order_id': '{{ order_id }}','amount':amount},
+			url: 'index.php?route=extension/klix/payment/klix{{ separator }}refund&user_token={{ user_token }}',
+			beforeSend: function() {
+				$('#button-refund').hide();
+				$('#img-loading-refund').show();
+				$('#klix-transaction-msg').hide();
+			},
+			success: function(data) {
+				alert(data.msg);
+					
+				$('#button-refund').show();
+			},
+			error: function(xhr, ajaxOptions, thrownError) {
+				//console.log(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);
+			}
+		});
+	}
+});
+</script>

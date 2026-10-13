@@ -1,0 +1,134 @@
+
+{% if error %}
+  <h3>{{ error }}</h3>
+{% else %}
+<form action="index.php?route=extension/klix/payment/klix.confirm" method="post" id="payment" class="form-horizontal klix-payment">
+    <div id="payment">
+        {% if klix_status %}
+			
+            <h3>{{ klix_payment_checkout_title }}</h3>
+            <div class="payment-method-select">
+
+                {% if klix_payment_methods['country_names']|length > 1 %}
+                    <div>
+						<label>
+							<select name="country" class="form-control" id="klix-country" title="Country">
+								{% for key,value in klix_payment_methods['country_names'] %}
+									<option
+										value="{{ key }}"
+										{% if key == selected_country %}selected="selected"{% endif %}
+									>{{ value }}</option>
+								{% endfor %}
+							</select>
+                    	</label>
+					</div>
+                {% else %}
+                    <input type="hidden" id="klix-country" name="country" value="{{ selected_country }}">
+                {% endif %}
+
+                <span class="payment-method-list">
+                    {% for country,country_methods in klix_grouped_payment_methods %}
+						<div class="klix-country" id="klix-{{ country }}"
+						{% if country!=selected_country %}
+							style="display:none"
+						{% endif %}
+						>
+							{% for name,payment_method in country_methods %}
+								<span style="width:100%;display:block;">{{klix_payment_methods['payment_method_groups'][name]}}</span>
+								{% for method in payment_method %}
+									<label style="padding: 1em; width: 250px;float:left;clear:left;">
+										<input type="radio"
+											required="required"
+											name="payment_method"
+											class="klix-payment-method"
+											value="{{ method }}"
+											country="{{ country }}"
+										/>
+										
+										<img src="https://portal.klix.app{{ klix_payment_methods['logos'][method] }}"
+											height='30' style='max-width: 160px; max-height: 30px;'
+										/>
+									</label>
+								{% endfor %}
+							{% endfor %}
+						</div>
+                    {% endfor %}
+                </span>
+            </div>
+        {% endif %}
+        <div>
+            <button class="btn btn-primary submit-payment-method-button"
+                    onclick="$('#payment').submit();"
+            ><span>Place order</span></button>
+            <button class="btn btn-primary submit-payment-method-button"
+                    disabled="disabled"
+            ><span>Place order</span></button>
+            <br clear="all"/>
+        </div>
+    </div>
+</form>
+{% endif %}
+
+<script>
+    function klixFilterPMs() {
+		
+        var countrySelect = document.getElementById("klix-country");
+
+        if (countrySelect == null) {
+            return;
+        };
+
+        var selected ='klix-' + countrySelect.value;
+        var els = document.getElementsByClassName("klix-country");
+
+        for (var i = 0; i < els.length; i++) {
+			els[i].style.display='none'
+			if(els[i].id===selected)
+			{
+				els[i].style.display='block'
+			}
+        }
+    }
+
+    var countrySelect = document.getElementById("klix-country");
+    if (countrySelect != null) {
+        countrySelect.addEventListener("change", klixFilterPMs);
+    }
+    klixFilterPMs();
+</script>
+
+<style>
+    form.klix-payment > div {
+        background-color: #efefef;
+        padding: 8px;
+        margin: 4px;
+    }
+    form.klix-payment .payment-method-select {
+        background-color: #e6e6e6;
+        padding: 8px;
+    }
+    form.klix-payment .payment-method-list {
+        display: flex;
+        flex-flow: row wrap;
+        margin: 4px;
+    }
+    form.klix-payment .payment-method-list > label {
+        background-color: #dedede;
+        margin-right: 8px;
+        border-radius: 15px;
+    }
+    form.klix-payment .payment-method-list .clear-div {
+        clear: both;
+        background-color: transparent;
+    }
+    form.klix-payment .submit-payment-method-button {
+        float: right;
+        margin: 4px;
+    }
+    form.klix-payment:invalid .submit-payment-method-button:not(:disabled) {
+        display: none;
+    }
+    form.klix-payment:valid .submit-payment-method-button:disabled {
+        display: none;
+    }
+</style>
