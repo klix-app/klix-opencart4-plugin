@@ -1,68 +1,70 @@
-
 {% if error %}
-  <h3>{{ error }}</h3>
+  <h3 class="klix-error" role="alert">{{ error }}</h3>
 {% else %}
-<form action="index.php?route=extension/klix/payment/klix.confirm" method="post" id="payment" class="form-horizontal klix-payment">
-    <div id="payment">
+<form action="index.php?route=extension/klix/payment/klix.confirm" method="post" id="klix-payment-form" class="form-horizontal klix-payment">
+    <div id="klix-payment">
         {% if klix_status %}
-			
-            <h3>{{ klix_payment_checkout_title }}</h3>
+
+            <h2 id="klix-payment-heading">{{ klix_payment_checkout_title }}</h2>
             <div class="payment-method-select">
 
                 {% if klix_payment_methods['country_names']|length > 1 %}
                     <div>
-						<label>
-							<select name="country" class="form-control" id="klix-country" title="Country">
-								{% for key,value in klix_payment_methods['country_names'] %}
-									<option
-										value="{{ key }}"
-										{% if key == selected_country %}selected="selected"{% endif %}
-									>{{ value }}</option>
-								{% endfor %}
-							</select>
-                    	</label>
-					</div>
+                        <label for="klix-country">{{ text_country|default('Country') }}</label>
+                        <select name="country" class="form-control" id="klix-country">
+                            {% for key,value in klix_payment_methods['country_names'] %}
+                                <option
+                                    value="{{ key }}"
+                                    {% if key == selected_country %}selected="selected"{% endif %}
+                                >{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 {% else %}
                     <input type="hidden" id="klix-country" name="country" value="{{ selected_country }}">
                 {% endif %}
 
-                <span class="payment-method-list">
+                <fieldset class="payment-method-list">
+                    <legend class="klix-sr-only">{{ klix_payment_checkout_title }}</legend>
                     {% for country,country_methods in klix_grouped_payment_methods %}
-						<div class="klix-country" id="klix-{{ country }}"
-						{% if country!=selected_country %}
-							style="display:none"
-						{% endif %}
-						>
-							{% for name,payment_method in country_methods %}
-								<span style="width:100%;display:block;">{{klix_payment_methods['payment_method_groups'][name]}}</span>
-								{% for method in payment_method %}
-									<label style="padding: 1em; width: 250px;float:left;clear:left;">
-										<input type="radio"
-											required="required"
-											name="payment_method"
-											class="klix-payment-method"
-											value="{{ method }}"
-											country="{{ country }}"
-										/>
-										
-										<img src="https://portal.klix.app{{ klix_payment_methods['logos'][method] }}"
-											height='30' style='max-width: 160px; max-height: 30px;'
-										/>
-									</label>
-								{% endfor %}
-							{% endfor %}
-						</div>
+                        <div class="klix-country" id="klix-{{ country }}"
+                        {% if country!=selected_country %}
+                            style="display:none"
+                        {% endif %}
+                        >
+                            {% for name,payment_method in country_methods %}
+                                <span style="width:100%;display:block;">{{ klix_payment_methods['payment_method_groups'][name] }}</span>
+                                {% for method in payment_method %}
+                                    {% set method_label = klix_payment_methods['payment_method_names'][method]|default(method) %}
+                                    <label style="padding: 1em; width: 250px;float:left;clear:left;">
+                                        <input type="radio"
+                                            required="required"
+                                            name="payment_method"
+                                            class="klix-payment-method"
+                                            value="{{ method }}"
+                                            data-country="{{ country }}"
+                                            aria-label="{{ method_label }}"
+                                        />
+
+                                        <img src="https://portal.klix.app{{ klix_payment_methods['logos'][method] }}"
+                                            alt="{{ method_label }}"
+                                            height='30' style='max-width: 160px; max-height: 30px;'
+                                        />
+                                    </label>
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
                     {% endfor %}
-                </span>
+                  </fieldset>
             </div>
         {% endif %}
         <div>
-            <button class="btn btn-primary submit-payment-method-button"
-                    onclick="$('#payment').submit();"
-            ><span>Place order</span></button>
-            <button class="btn btn-primary submit-payment-method-button"
+            <button type="submit" class="btn btn-primary submit-payment-method-button"
+            ><span>{{ button_place_order|default('Place order') }}</span></button>
+            <button type="button" class="btn btn-primary submit-payment-method-button"
                     disabled="disabled"
-            ><span>Place order</span></button>
+                    aria-hidden="true"
+            ><span>{{ button_place_order|default('Place order') }}</span></button>
             <br clear="all"/>
         </div>
     </div>
@@ -71,7 +73,7 @@
 
 <script>
     function klixFilterPMs() {
-		
+
         var countrySelect = document.getElementById("klix-country");
 
         if (countrySelect == null) {
@@ -82,16 +84,16 @@
         var els = document.getElementsByClassName("klix-country");
 
         for (var i = 0; i < els.length; i++) {
-			els[i].style.display='none'
-			if(els[i].id===selected)
-			{
-				els[i].style.display='block'
-			}
+            els[i].style.display='none'
+            if(els[i].id===selected)
+            {
+                els[i].style.display='block'
+            }
         }
     }
 
     var countrySelect = document.getElementById("klix-country");
-    if (countrySelect != null) {
+    if (countrySelect != null && countrySelect.tagName === 'SELECT') {
         countrySelect.addEventListener("change", klixFilterPMs);
     }
     klixFilterPMs();
@@ -104,7 +106,7 @@
         margin: 4px;
     }
     form.klix-payment .payment-method-select {
-        background-color: #e6e6e6;
+        background-color: #ffffff;
         padding: 8px;
     }
     form.klix-payment .payment-method-list {
@@ -130,5 +132,17 @@
     }
     form.klix-payment:valid .submit-payment-method-button:disabled {
         display: none;
+    }
+    form.klix-payment .payment-method-list label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background-color: #f7f7f7;
+        margin-right: 8px;
+        border-radius: 15px;
+        margin-bottom: 4px;
+    }
+    form.klix-payment .payment-method-list label:has(input:checked) {
+        background-color: #e6e6e6;
     }
 </style>

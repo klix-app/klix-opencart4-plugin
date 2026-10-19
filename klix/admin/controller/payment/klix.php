@@ -50,6 +50,8 @@ class Klix extends \Opencart\System\Engine\Controller {
 		$data['entry_brand_id']=$this->language->get('entry_brand_id');
 		$data['entry_secret_key']=$this->language->get('entry_secret_key');
 		$data['entry_status']=$this->language->get('entry_status');
+		$data['entry_pay_later_widget']=$this->language->get('entry_pay_later_widget');
+		$data['entry_minimum_amount_pay_later_widget']=$this->language->get('entry_minimum_amount_pay_later_widget');
 		
 		$this->load->model('localisation/order_status');
 
@@ -83,12 +85,25 @@ class Klix extends \Opencart\System\Engine\Controller {
 		$this->load->model('extension/klix/payment/klix');
 		
 		$this->model_extension_klix_payment_klix->install();
+		
+		$this->load->model('setting/event');
+		$this->model_setting_event->deleteEventByCode('klix_paylater');
+		$this->model_setting_event->addEvent([
+			'code'        => 'klix_paylater',
+			'description' => 'Klix Pay Later widget on product page',
+			'trigger'     => 'catalog/view/product/product/before',
+			'action'      => 'extension/klix/payment/klix.widget',
+			'status'      => 1,
+			'sort_order'  => 0
+		]);
 	}
 	
 	public function uninstall(): void {
 		$this->load->model('extension/klix/payment/klix');
 		
 		$this->model_extension_klix_payment_klix->uninstall();
+		$this->load->model('setting/event');
+		$this->model_setting_event->deleteEventByCode('klix_paylater');
 	}
 					
 	public function order() {

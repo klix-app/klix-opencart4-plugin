@@ -7,7 +7,7 @@ require_once(DIR_EXTENSION . 'klix/system/library/PurchaseObject.php');
 
 class Klix extends \Opencart\System\Engine\Controller {
 	private $separator = '';
-	private $version='1.0.4';
+	private $version='1.1.0';
 	
 	public function __construct($registry) {
         parent::__construct($registry);
@@ -172,5 +172,57 @@ class Klix extends \Opencart\System\Engine\Controller {
 
 		}
 		Header("Location: ".$this->url->link('checkout/success', 'language=' . $this->config->get('config_language'), true));
+	}
+	
+	public function widget(string &$route, array &$data, string &$template): void {
+
+		$product_id = isset($this->request->get['product_id']) ? (int)$this->request->get['product_id'] : 0;
+		if (!$product_id) {
+			return;
+		}
+
+		$this->load->model('setting/setting');
+		$klix_settings = $this->model_setting_setting->getSetting('payment_klix');
+		$brand_id = $this->config->get('payment_klix_brand_id');
+		$status   = $this->config->get('payment_klix_status');
+	    $klix_pay_later_widget = $this->config->get('payment_klix_pay_later_widget');
+
+		if (!$status || !$brand_id || !$klix_pay_later_widget) {
+			return;
+		}
+		
+		$this->load->model('catalog/product');
+		$product_info = $this->model_catalog_product->getProduct($product_id);
+		if (!$product_info) {
+			return;
+		}
+		
+		$amount = (int)round((float)$product_info['price'] * 100);
+		$raw = $this->config->get('payment_klix_minimum_amount_pay_later_widget');
+
+		if ($raw === null || $raw === '') {
+			$minimum_amount = 7000;
+		} else {
+			$minimum_amount = (int)round((float)$raw * 100);
+		}
+
+		if ($amount < $minimum_amount) {
+			return;
+		}
+
+		$language = substr((string)$this->config->get('config_language'), 0, 2);
+		if (!in_array($language, ['en', 'et', 'lt', 'lv', 'ru'])) {
+			$language = 'en';
+		}
+
+		$widget  = '<script type="module" src="https://klix.blob.core.windows.net/public/pay-later-widget/build/klix-pay-later-widget.esm.js"></script>';
+		$widget .= '<script nomodule src="https://klix.blob.core.windows.net/public/pay-later-widget/build/klix-pay-later-widget.js"></script>';
+		$widget .= '<klix-pay-later amount="' . $amount . '" brand_id="' . htmlspecialchars($brand_id) . '" language="' . $language . '"></klix-pay-later>';
+
+		if (!isset($data['price'])) {
+			$data['price'] = '';
+		}
+		
+		$data['price'] .= $widget;
 	}
 }
