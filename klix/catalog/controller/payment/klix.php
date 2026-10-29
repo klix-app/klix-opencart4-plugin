@@ -7,7 +7,7 @@ require_once(DIR_EXTENSION . 'klix/system/library/PurchaseObject.php');
 
 class Klix extends \Opencart\System\Engine\Controller {
 	private $separator = '';
-	private $version='1.1.0';
+	private $version='1.2.0';
 	
 	public function __construct($registry) {
         parent::__construct($registry);
@@ -96,7 +96,7 @@ class Klix extends \Opencart\System\Engine\Controller {
 
 		$success_url = html_entity_decode($this->url->link('extension/klix/payment/klix.success', 'order_id=' . $order_id, true));
 		$cancel_url  = html_entity_decode($this->url->link('extension/klix/payment/klix.cancel',  'order_id=' . $order_id, true));
-		$failure_url = html_entity_decode($this->url->link('extension/klix/payment/klix.failure', 'order_id=' . $order_id, true));
+		$failure_url = html_entity_decode($this->url->link('extension/klix/payment/klix.cancel', 'order_id=' . $order_id, true));
 
 		$purchaseObject->success_redirect = $success_url;
 		$purchaseObject->success_callback = $success_url;
@@ -109,16 +109,9 @@ class Klix extends \Opencart\System\Engine\Controller {
 		$createdPurchase = $this->model_extension_klix_payment_klix->createPurchase((array)$purchaseObject);
 
 		if (isset($createdPurchase['id'])) {
-			$order_statuses        = $this->model_localisation_order_status->getOrderStatuses();
-			$processing_status_id  = 0;
-			foreach ($order_statuses as $order_status) {
-				if ($order_status['name'] == 'Processing') {
-					$processing_status_id = (int)$order_status['order_status_id'];
-				}
-			}
-
+			$processing_status_id = (int)$this->config->get('payment_klix_processing_status_id');
 			if ($processing_status_id) {
-				$this->model_checkout_order->addHistory($order_id, $processing_status_id);
+				$this->model_checkout_order->addHistory($this->session->data['order_id'], $processing_status_id);
 			}
 
 			$payment_method = $this->request->post['payment_method'] ?? '';
@@ -140,38 +133,98 @@ class Klix extends \Opencart\System\Engine\Controller {
 		}
 	}
 			
-	public function success():void
-	{
+	public function success(): void {
 		$this->load->language('extension/klix/payment/klix');
 		$this->load->model('checkout/order');
 		$this->load->model('extension/klix/payment/klix');
-		$this->load->model('localisation/order_status');
 
-		$order=$this->model_checkout_order->getOrder($_GET['order_id']);
+		$order_id = isset($this->request->get['order_id']) ? (int)$this->request->get['order_id'] : 0;
 
-		$purchase=$this->model_extension_klix_payment_klix->getPurchase($order['payment_custom_field']['purchase_id']);
-		
-		if($purchase['status']=='paid' && $order['order_status_id']==2)
-		{
-			$order_statuses = $this->model_localisation_order_status->getOrderStatuses();
-			$processed_status_id=null;
-			foreach($order_statuses as $order_status)
-			{
-				if($order_status['name']=='Processed') {
-					$processed_status_id=$order_status['order_status_id'];
-				}
-			}
-
-			$this->model_checkout_order->addHistory($_GET['order_id'], $processed_status_id,'',true);
-			$data=json_encode([
-				'purchase_id'=>$purchase['id'],
-				'payment_method'=>$purchase['transaction_data']['payment_method'],
-				'refund_availability'=>$purchase['refund_availability']
-			]);
-			$this->model_extension_klix_payment_klix->updateOrderPaymentInfo($_GET['order_id'],$data);
-
+		if (!$order_id) {
+			$this->response->redirect($this->url->link('checkout/cart'));
+			return;
 		}
-		Header("Location: ".$this->url->link('checkout/success', 'language=' . $this->config->get('config_language'), true));
+
+		$order = $this->model_checkout_order->getOrder($order_id);
+		if (!$order) {
+			$this->response->redirect($this->url->link('checkout/cart'));
+			return;
+		}
+
+		$custom = $order['payment_custom_field'] ?? '';
+		$klix_info = is_string($custom) ? json_decode($custom, true) : $custom;
+
+		if (!empty($klix_info) && !empty($klix_info['purchase_id'])) {
+			$purchase = $this->model_extension_klix_payment_klix->getPurchase($klix_info['purchase_id']);
+
+			$processing_status_id = (int)$this->config->get('payment_klix_processing_status_id');
+			$processed_status_id  = (int)$this->config->get('payment_klix_processed_status_id');
+
+			if (is_array($purchase)
+				&& ($purchase['status'] ?? '') == 'paid'
+				&& $processed_status_id
+				&& (int)$order['order_status_id'] == $processing_status_id
+			) {
+				$this->model_checkout_order->addHistory($order_id, $processed_status_id, '', true);
+
+				$data = json_encode([
+					'purchase_id'         => $purchase['id'] ?? '',
+					'payment_method'      => $purchase['transaction_data']['payment_method'] ?? '',
+					'refund_availability' => $purchase['refund_availability'] ?? ''
+				]);
+				$this->model_extension_klix_payment_klix->updateOrderPaymentInfo($order_id, $data);
+			}
+		}
+
+		$this->response->redirect($this->url->link('checkout/success', 'language=' . $this->config->get('config_language'), true));
+	}
+
+	public function cancel(): void {
+		$this->load->language('extension/klix/payment/klix');
+		$this->load->model('checkout/order');
+		$this->load->model('extension/klix/payment/klix');
+
+		$order_id = isset($this->request->get['order_id']) ? (int)$this->request->get['order_id'] : 0;
+		if (!$order_id) {
+			$this->response->redirect($this->url->link('checkout/cart'));
+			return;
+		}
+
+		$order = $this->model_checkout_order->getOrder($order_id);
+		if (!$order) {
+			$this->response->redirect($this->url->link('checkout/cart'));
+			return;
+		}
+
+		$custom = $order['payment_custom_field'] ?? '';
+		$klix_info = is_string($custom) ? json_decode($custom, true) : $custom;
+
+		$processing_status_id = (int)$this->config->get('payment_klix_processing_status_id');
+		$processed_status_id  = (int)$this->config->get('payment_klix_processed_status_id');
+		if (!empty($klix_info) && !empty($klix_info['purchase_id'])) {
+			$purchase = $this->model_extension_klix_payment_klix->getPurchase($klix_info['purchase_id']);
+
+			$status = is_array($purchase) ? ($purchase['status'] ?? '') : '';
+
+			if (
+				$status == 'paid'
+				&& $processed_status_id
+				&& (int)$order['order_status_id'] == $processing_status_id
+			) {
+				$this->model_checkout_order->addHistory($order_id, $processed_status_id, '', true);
+
+				$data = json_encode([
+					'purchase_id'         => $purchase['id'] ?? '',
+					'payment_method'      => $purchase['transaction_data']['payment_method'] ?? '',
+					'refund_availability' => $purchase['refund_availability'] ?? ''
+				]);
+				$this->model_extension_klix_payment_klix->updateOrderPaymentInfo($order_id, $data);
+				$this->response->redirect($this->url->link('checkout/success', 'language=' . $this->config->get('config_language'), true));
+				return;
+			}
+		}
+
+		$this->response->redirect($this->url->link('checkout/checkout', 'language=' . $this->config->get('config_language'), true));
 	}
 	
 	public function widget(string &$route, array &$data, string &$template): void {

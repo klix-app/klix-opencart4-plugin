@@ -56,7 +56,23 @@ class Klix extends \Opencart\System\Engine\Controller {
 		$this->load->model('localisation/order_status');
 
 		$data['klix_status'] = $this->config->get('payment_klix_status');
-							
+		$data['klix_pay_later_widget'] = $this->config->get('payment_klix_pay_later_widget');
+		$data['klix_minimum_amount_pay_later_widget'] = $this->config->get('payment_klix_minimum_amount_pay_later_widget');
+
+		$data['order_statuses'] = $this->model_localisation_order_status->getOrderStatuses();
+		
+		if (isset($this->request->post['payment_klix_processing_status_id'])) {
+			$data['processing_status_id'] = (int)$this->request->post['payment_klix_processing_status_id'];
+		} else {
+			$data['processing_status_id'] = (int)$this->config->get('payment_klix_processing_status_id');
+		}
+
+		if (isset($this->request->post['payment_klix_processed_status_id'])) {
+			$data['processed_status_id'] = (int)$this->request->post['payment_klix_processed_status_id'];
+		} else {
+			$data['processed_status_id'] = (int)$this->config->get('payment_klix_processed_status_id');
+		}
+
 		$data['header'] = $this->load->controller('common/header');
 		$data['column_left'] = $this->load->controller('common/column_left');
 		$data['footer'] = $this->load->controller('common/footer');
@@ -66,26 +82,38 @@ class Klix extends \Opencart\System\Engine\Controller {
 	
 	public function save(): void {
 		$this->load->language('extension/klix/payment/klix');
-				
-		if (($this->request->server['REQUEST_METHOD'] == 'POST')) {
+
+		$json = [];
+
+		if ($this->request->server['REQUEST_METHOD'] == 'POST') {
 			$this->load->model('setting/setting');
+			if (!isset($this->request->post['payment_klix_status'])) {
+				$this->request->post['payment_klix_status'] = 0;
+			}
+			if (!isset($this->request->post['payment_klix_pay_later_widget'])) {
+				$this->request->post['payment_klix_pay_later_widget'] = 0;
+			}
 
 			$this->model_setting_setting->editSetting('payment_klix', $this->request->post);
-			
-			$data['success'] = $this->language->get('success_save');
+
+			$json['success'] = $this->language->get('success_save');
 		}
-		
-		$data['error'] = $this->error;
-		
+
 		$this->response->addHeader('Content-Type: application/json');
-		$this->response->setOutput(json_encode($data));
+		$this->response->setOutput(json_encode($json));
 	}
 			
 	public function install(): void {
 		$this->load->model('extension/klix/payment/klix');
-		
+
 		$this->model_extension_klix_payment_klix->install();
-		
+
+		$this->load->model('setting/setting');
+		$settings = $this->model_setting_setting->getSetting('payment_klix');
+		$settings['payment_klix_processing_status_id'] = $settings['payment_klix_processing_status_id'] ?? 2;
+		$settings['payment_klix_processed_status_id']  = $settings['payment_klix_processed_status_id']  ?? 2;
+		$this->model_setting_setting->editSetting('payment_klix', $settings);
+
 		$this->load->model('setting/event');
 		$this->model_setting_event->deleteEventByCode('klix_paylater');
 		$this->model_setting_event->addEvent([
@@ -107,24 +135,41 @@ class Klix extends \Opencart\System\Engine\Controller {
 	}
 					
 	public function order() {
-		
-			$this->load->model('extension/klix/payment/klix');
-			
-			$order = $this->model_extension_klix_payment_klix->getOrder($this->request->get['order_id']);
-			
-			$klix_info=json_decode($order['payment_custom_field']);
+		$this->load->model('extension/klix/payment/klix');
 
-			$purchase=$this->model_extension_klix_payment_klix->getPurchase($klix_info->purchase_id);
+		$order_id = isset($this->request->get['order_id']) ? (int)$this->request->get['order_id'] : 0;
+		if (!$order_id) {
+			return '';
+		}
 
-			$data['order_id']=$this->request->get['order_id'];
-			$data['klix_purchase_id']=$klix_info->purchase_id;
-			$data['klix_payment_method']=$klix_info->payment_method;
-			$data['klix_refundable_amount']=$purchase['refundable_amount']/100;
-			$data['klix_refund_availability']=$klix_info->refund_availability;
-			$data['user_token'] = $this->session->data['user_token'];
+		$order = $this->model_extension_klix_payment_klix->getOrder($order_id);
+		if (!$order) {
+			return '';
+		}
 
-			$data['separator'] = $this->separator;
-			return $this->load->view('extension/klix/payment/order', $data);
+		$custom = $order['payment_custom_field'] ?? '';
+		$klix_info = is_string($custom) ? json_decode($custom, true) : $custom;
+
+		if (empty($klix_info) || empty($klix_info['purchase_id'])) {
+			return '';
+		}
+
+		$purchase = $this->model_extension_klix_payment_klix->getPurchase($klix_info['purchase_id']);
+
+		$data['order_id']               = $order_id;
+		$data['klix_purchase_id']       = $klix_info['purchase_id'];
+		$data['klix_payment_method']    = $klix_info['payment_method'] ?? '';
+		$data['klix_refund_availability']= $klix_info['refund_availability'] ?? '';
+
+		$refundable = (is_array($purchase) && isset($purchase['refundable_amount']))
+			? $purchase['refundable_amount'] / 100
+			: 0;
+		$data['klix_refundable_amount'] = $refundable;
+
+		$data['user_token'] = $this->session->data['user_token'];
+		$data['separator']  = $this->separator;
+
+		return $this->load->view('extension/klix/payment/order', $data);
 	}
 
 	public function refund() {

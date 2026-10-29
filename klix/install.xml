@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+    <name>Klix</name>
+    <code>klix</code>
+    <version>1.2.0</version>
+    <author>Klix</author>
+    <link>https://klix.app</link>
+
+
+        <file path="catalog/controller/product/product.php">
+        <operation>
+            <search><![CDATA[$data['product_id'] = (int)$this->request->get['product_id'];]]></search>
+            <add position="after"><![CDATA[
+		$data['klix_amount'] = (int)round((float)$product_info['price'] * 100);
+		$data['klix_brand_id'] = $this->config->get('payment_klix_brand_id');
+
+		$klix_lang = substr((string)$this->config->get('config_language'), 0, 2);
+		if (!in_array($klix_lang, ['en', 'et', 'lt', 'lv', 'ru'])) {
+			$klix_lang = 'en';
+		}
+		$data['klix_language'] = $klix_lang;
+			]]></add>
+        </operation>
+    </file>
+
+    <file path="catalog/view/template/product/product.twig">
+        <operation>
+            <search><![CDATA[<button type="submit" id="button-cart"]]></search>
+            <add position="before"><![CDATA[
+<script type="module" src="https://klix.blob.core.windows.net/public/pay-later-widget/build/klix-pay-later-widget.esm.js"></script>
+<script nomodule src="https://klix.blob.core.windows.net/public/pay-later-widget/build/klix-pay-later-widget.js"></script>
+<klix-pay-later
+    amount="{{ klix_amount }}"
+    brand_id="{{ klix_brand_id }}"
+    language="{{ klix_language }}"
+</klix-pay-later>
+			]]></add>
+        </operation>
+    </file>
+</modification>

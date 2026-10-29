@@ -8,24 +8,39 @@ class Klix extends \Opencart\System\Engine\Model {
 	public function uninstall(): void {
 	}
 
-	public function refund(int $order_id,int $amount): array|bool {
+	public function refund(int $order_id, int $amount): array|bool {
 		$order = $this->getOrder($order_id);
-		$klix_info=json_decode($order['payment_custom_field']);
-		$klix_purchase_id=$klix_info->purchase_id;
-		$refundable_amount=$this->getPurchase($klix_info->purchase_id)['refundable_amount'];
-		
-		
-		if ($refundable_amount>=$amount && $klix_info->refund_availability!='none') {
-			$refund_data=[
-				'amount'=>$amount,
-				'client_name'=>$order['firstname'].' '.$order['lastname']
-			];
-			
-			$response_data = $this->sendCurl('POST',"purchases/{$klix_purchase_id}/refund/", $refund_data);
-			return $response_data;
-		} else {
+		if (!$order) {
 			return false;
 		}
+
+		$custom = $order['payment_custom_field'] ?? '';
+		$klix_info = is_string($custom) ? json_decode($custom, true) : $custom;
+
+		if (empty($klix_info) || empty($klix_info['purchase_id'])) {
+			return false;
+		}
+
+		$klix_purchase_id = $klix_info['purchase_id'];
+
+		$purchase = $this->getPurchase($klix_purchase_id);
+		if (!is_array($purchase) || !isset($purchase['refundable_amount'])) {
+			return false;
+		}
+		$refundable_amount = $purchase['refundable_amount'];
+
+		$refund_availability = $klix_info['refund_availability'] ?? 'none';
+
+		if ($amount > 0 && $refundable_amount >= $amount && $refund_availability != 'none') {
+			$refund_data = [
+				'amount'      => $amount,
+				'client_name' => $order['firstname'] . ' ' . $order['lastname']
+			];
+
+			return $this->sendCurl('POST', "purchases/{$klix_purchase_id}/refund/", $refund_data);
+		}
+
+		return false;
 	}
 
 	public function getOrder(int $order_id): array|bool {

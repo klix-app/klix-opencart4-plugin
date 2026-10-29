@@ -105,15 +105,18 @@ class Klix extends \Opencart\System\Engine\Model {
 		$this->db->query("UPDATE ".DB_PREFIX."order SET `payment_custom_field` = '{$custom_payment_field}',`payment_method`='{$payment_method}' WHERE `order_id` = '" . $order_id . "'");
 	}
 
-	public function getPurchase($purchase_id)
+	public function getPurchase(?string $purchase_id): ?array
 	{
+		if (!$purchase_id) {
+        	return null;
+    	}
 		$purchase=$this->sendCurl('GET',"purchases/{$purchase_id}/");
 		
 		if($purchase!=null)
 		{
 			return $purchase;
 		}
-		return '';
+		return null;
 	}
 
 	public function sendCurl(string $method,string $url, ?array $payment_data=null): array {

@@ -9,3 +9,5 @@ $_['entry_secret_key']='Secret key';
 $_['entry_status']='Enabled';
 $_['entry_pay_later_widget']='Enable Pay Later widget';
 $_['entry_minimum_amount_pay_later_widget']='Minimum Amount for Pay Later widget';
+$_['entry_processing_status'] = 'Gaida apmaksu statusu';
+$_['entry_processed_status']  = 'Veiksmīgas apmaksas statusu';
